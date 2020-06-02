@@ -26,13 +26,13 @@
     cmake-mode
     cmake-project
     color-theme-modern
-    color-theme-solarized
     company
     company-quickhelp
     csharp-mode
     counsel-projectile
     dim
     dired-single
+    dired-subtree
     edit-server
     elpy
     ethan-wspace
@@ -41,9 +41,11 @@
     flycheck
     flyspell-popup
     geiser
+    git-gutter
     gmail-message-mode
     golden-ratio
     graphviz-dot-mode
+    gruvbox-theme
     haskell-mode
     hide-lines
     highlight-escape-sequences
@@ -74,21 +76,25 @@
     protobuf-mode
     projectile
     py-autopep8
+    pyenv-mode
     racket-mode
     rainbow-delimiters
     rainbow-mode
     slime
     smart-mode-line
     smart-mode-line-powerline-theme
+    solarized-theme
     sx
     sr-speedbar
     swiper
     switch-window
     tabbar
     use-package
-    vimrc-mode
     vlf
+    vimrc-mode
+    visual-regexp-steroids
     websocket
+    which-key
     workgroups2
     wttrin
     xcscope
@@ -193,8 +199,7 @@
   :config
   (cnfonts-enable))
 
-;; color-theme-solarized
-(require 'color-theme-solarized)
+;; theme
 (defun switch-theme (gui-theme terminal-theme)
   (interactive
     (list
@@ -217,7 +222,7 @@
       (set-terminal-parameter nil 'background-mode 'dark)
       (load-theme terminal-theme t t)
       (enable-theme terminal-theme))))
-(switch-theme 'solarized 'ample-flat)
+(switch-theme 'gruvbox-dark-medium 'gruvbox-dark-medium)
 
 ;; company
 (use-package company
@@ -256,7 +261,6 @@
   (column-marker-1 80))
 
 ;; dim
-(require 'dim)
 (defun simplify-mode-alias ()
   "Shorten mode line major/minor modes names."
   (dim-major-names
@@ -275,20 +279,25 @@
      (abbrev-mode                "")
      (hs-minor-mode              "")
      (ivy-mode                   "")
+     (git-gutter-mode            "")
      )))
-(eval-after-load "~/.emacs.d/init.el" (simplify-mode-alias))
-(add-hook 'workgroups-mode-hook
-          (lambda ()
-            (dim-minor-name 'workgroups-mode "")))
-(add-hook 'yas-minor-mode-hook
-          (lambda ()
-            (dim-minor-name 'yas-minor-mode  " →")))
-(add-hook 'paredit-mode-hook
-          (lambda ()
-            (dim-minor-name 'paredit-mode    " ()")))
-(add-hook 'flyspell-mode-hook
-          (lambda ()
-            (dim-minor-name 'flyspell-mode   " √")))
+(use-package dim
+  :after
+  (anzu ivy git-gutter workgroups2 yasnippet paredit)
+  :init
+  (add-hook 'workgroups-mode-hook
+            (lambda ()
+              (dim-minor-name 'workgroups-mode "")))
+  (add-hook 'yas-minor-mode-hook
+            (lambda ()
+              (dim-minor-name 'yas-minor-mode  " →")))
+  (add-hook 'paredit-mode-hook
+            (lambda ()
+              (dim-minor-name 'paredit-mode    " ()")))
+  (add-hook 'flyspell-mode-hook
+            (lambda ()
+              (dim-minor-name 'flyspell-mode   " √")))
+  (simplify-mode-alias))
 
 ;; dired+
 (use-package dired+
@@ -320,12 +329,21 @@
   :requires (dired+ dired-sort-menu)
   :load-path "emacswiki/dired-sort-menu+/")
 
+;; dired-subtree
+(use-package dired-subtree
+  :defer t
+  :bind (:map dired-mode-map
+              ("TAB" . dired-subtree-cycle)))
+
 ;; elpy
 (use-package elpy
-  :config
-  (elpy-enable)
-  (setq elpy-modules (delq 'elpy-module-flymake elpy-modules))
-  (add-hook 'elpy-mode-hook 'py-autopep8-enable-on-save))
+  :ensure t
+  :defer t
+  ;; :config
+  ;; (setq elpy-modules (delq 'elpy-module-flymake elpy-modules))
+  ;; (add-hook 'elpy-mode-hook 'py-autopep8-enable-on-save)
+  :init
+  (advice-add 'python-mode :before 'elpy-enable))
 
 ;; ethan-wspace
 (use-package ethan-wspace
@@ -334,7 +352,7 @@
    'prog-mode-hook
    (lambda ()
      (setq mode-require-final-newline nil)
-     (ethan-wspace-mode 1)
+     (global-ethan-wspace-mode 1)
      (ethan-wspace-clean-no-nl-eof-mode 1)
      (ethan-wspace-highlight-tabs-mode 1)))
   (add-hook
@@ -373,6 +391,21 @@
 
 ;; flyspell-popup
 ;; (add-hook 'flyspell-mode-hook #'flyspell-popup-auto-correct-mode)
+
+(use-package git-gutter
+  :init
+  ;; If you enable global minor mode
+  (global-git-gutter-mode t)
+  :config
+  ;; Jump to next/previous hunk
+  (global-set-key (kbd "C-x v p") 'git-gutter:previous-hunk)
+  (global-set-key (kbd "C-x v n") 'git-gutter:next-hunk)
+  ;; Stage current hunk
+  (global-set-key (kbd "C-x v s") 'git-gutter:stage-hunk)
+  ;; Revert current hunk
+  (global-set-key (kbd "C-x v r") 'git-gutter:revert-hunk)
+  ;; Mark current hunk
+  (global-set-key (kbd "C-x v SPC") #'git-gutter:mark-hunk))
 
 (use-package highlight-escape-sequences
   :init
@@ -593,6 +626,12 @@
   :config
   (counsel-projectile-mode 1))
 
+;; pyenv-mode
+(use-package pyenv-mode
+  :config
+  (when (eq system-type 'gnu/linux)
+    (pyenv-mode 1)))
+
 ;; rainbow-delimiters
 (use-package rainbow-delimiters
   :defer t
@@ -608,6 +647,7 @@
 
 ;; slime
 (use-package slime
+  :ensure t
   :defer t
   :init
   (setq inferior-lisp-program "sbcl")
@@ -664,8 +704,9 @@
 (add-to-list 'auto-mode-alist '("vim\\(rc\\)?$" . vimrc-mode))
 
 ;; vlf
-(require 'vlf-setup)
-(setq vlf-application 'dont-ask)
+(use-package vlf-setup
+  :config
+  (setq vlf-application 'dont-ask))
 
 ;; workgroups2
 (require 'workgroups2)
@@ -694,20 +735,24 @@
 (add-hook 'c-mode-common-hook #'cscope-minor-mode)
 
 ;; yasnippet
-(require 'yasnippet)
-(yas-global-mode 1)
-(add-hook 'prog-mode-hook #'yas-minor-mode)
-;; Remove Yasnippet's default tab key binding
-(define-key yas-minor-mode-map (kbd "<tab>") nil)
-(define-key yas-minor-mode-map (kbd "TAB") nil)
-;; Set Yasnippet's key binding to shift+tab
-(define-key yas-minor-mode-map (kbd "<backtab>") 'yas-expand)
-;; Alternatively use Control-c + tab
-(define-key yas-minor-mode-map (kbd "\C-c TAB") 'yas-expand)
+(use-package yasnippet
+  :config
+  (yas-global-mode 1)
+  (add-hook 'prog-mode-hook #'yas-minor-mode)
+  ;; Remove Yasnippet's default tab key binding
+  (define-key yas-minor-mode-map (kbd "<tab>") nil)
+  (define-key yas-minor-mode-map (kbd "TAB") nil)
+  ;; Set Yasnippet's key binding to shift+tab
+  (define-key yas-minor-mode-map (kbd "<backtab>") 'yas-expand)
+  ;; Alternatively use Control-c + tab
+  (define-key yas-minor-mode-map (kbd "\C-c TAB") 'yas-expand))
 
 ;; youdao-dictionary
-(require 'youdao-dictionary)
-(global-set-key (kbd "C-c y") 'youdao-dictionary-search-at-point)
+(use-package youdao-dictionary
+  :ensure t
+  :defer t
+  :init
+  (global-set-key (kbd "C-c y") 'youdao-dictionary-search-at-point))
 
 (provide 'init-package-elpa)
 ;;; init-package-elpa.el ends here
